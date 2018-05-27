@@ -6,6 +6,8 @@ import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.ImageView;
 
+import java.io.FileDescriptor;
+
 import okhttp3.ResponseBody;
 
 /**
@@ -28,10 +30,17 @@ public class ImageLoadTask  extends AsyncTask<String, Void, Bitmap> {
     @Override
     protected Bitmap doInBackground(String... strings) {
         mUrl = strings[0];
-        Bitmap bitmap = null;
-        ResponseBody responseBody = OkHttpUtils.getResponseBody(mUrl);
-        if(responseBody != null) {
-            bitmap = BitmapFactory.decodeStream(responseBody.byteStream());
+        Bitmap bitmap = ImageLoader.getInstance().getBitmapFromDiskCache(mUrl);
+        if(bitmap == null) {
+            ResponseBody responseBody = OkHttpUtils.getResponseBody(mUrl);
+            if (responseBody != null) {
+                ImageLoader.getInstance().addBitmapToDiskCache(mUrl, responseBody.byteStream());
+                responseBody.close();
+                bitmap = ImageLoader.getInstance().getBitmapFromDiskCache(mUrl);
+            }
+            if(bitmap != null) {
+                ImageLoader.getInstance().addBitmapToMemoryCache(mUrl, bitmap);
+            }
         }
         return bitmap;
     }
@@ -39,7 +48,6 @@ public class ImageLoadTask  extends AsyncTask<String, Void, Bitmap> {
     @Override
     protected void onPostExecute(Bitmap bitmap) {
         if(bitmap != null) {
-            ImageLoader.getInstance().addBitmapToMemoryCache(mUrl, bitmap);
             if(mImageView != null) {
                 mImageView.setImageBitmap(bitmap);
             }else if(mZoomImageView != null) {
